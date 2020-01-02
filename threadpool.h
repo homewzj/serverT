@@ -15,6 +15,6 @@ ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, si
 
 void deinitThreadPoolContext(ThreadPoolMangerContext *pContext, logContext *pLogCtx);
 
-int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext, logContext *pLogCtx);
+void * ThreadPoolMangerRun(void *arg);
 
 #endif

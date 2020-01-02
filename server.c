@@ -25,7 +25,8 @@ void deinitWebServerContext(webServerContext *pContext) {
     assert(pContext != NULL);
     size_t index = 0;
     for (; index < pContext->pConfig->socketNum; index++) {
-        if (pContext->pThreadPoolContext[index]) {
+        if (pContext->pThreadPoolContext[index]->tid > 0) {
+            pthread_join(pContext->pThreadPoolContext[index]->tid, NULL);
             deinitThreadPoolContext(pContext->pThreadPoolContext[index], pContext->pLogCtx);
         }
     }

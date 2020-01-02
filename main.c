@@ -9,12 +9,15 @@ int main(int argc, char *argv[]) {
     pConfig.pLogPath = strdup(".");
     pConfig.logLevel = LOG_LEVEL_DEBUG;
     pConfig.logOutBufSize = 1024;
-    pConfig.workerThreadNum = 10;
+    pConfig.workerThreadNum = 4;
     pConfig.scanTimeOut = 1000;
-    pConfig.socketNum = 4;
+    pConfig.socketNum = 2;
     gWebServerContext = initWebServerContext(&pConfig);
     for( ; index < pConfig.socketNum; index++ ) {
-        iRet = ThreadPoolMangerRun(gWebServerContext->pThreadPoolContext[index], gWebServerContext->pLogCtx);
+        iRet = pthread_create(&(gWebServerContext->pThreadPoolContext[index]->tid), NULL, ThreadPoolMangerRun, (void *)(gWebServerContext->pThreadPoolContext[index]));
+        if (iRet < 0) {
+            break;
+        }
     }
     deinitWebServerContext(gWebServerContext);
     return RET_OK;

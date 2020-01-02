@@ -141,8 +141,9 @@ void threadPoolSignalHandler(int signo) {
 }
 
 
-int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext, logContext *pLogCtx){
+void * ThreadPoolMangerRun(void *arg){
     int resultCode = RESULT_SAVE_CURRENT;
+    ThreadPoolMangerContext *pContext = (ThreadPoolMangerContext *)arg;
     assert(pContext != NULL);
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
@@ -152,8 +153,8 @@ int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext, logContext *pLogCtx){
     while(!(gWebServerContext->bExitFlag)) {
         /*@step1:*/        
         if (time(NULL) - pContext->lastScan >= pContext->scanTimeOut) {
-            resultCode = scanAllWorkerThreadStatus(pContext, pLogCtx);
-            handleWorkerThreadScanResult(resultCode, &pContext, pLogCtx);
+            resultCode = scanAllWorkerThreadStatus(pContext, gWebServerContext->pLogCtx);
+            handleWorkerThreadScanResult(resultCode, &pContext, gWebServerContext->pLogCtx);
             pContext->lastScan = time(NULL);
         }
         /*@step2:*/
@@ -168,14 +169,14 @@ int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext, logContext *pLogCtx){
         taskId++;
     }
     pthread_cond_broadcast(&(pContext->not_empty));
-    logRecord(pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);
+    logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);
     printf("Thread Pool Manger Exit!....worker Thread Num:%u  create taskNum:%llu\n", pContext->currentNum, taskId);
     pthread_mutex_lock(&(pContext->mtx));
     while(pContext->currentNum > 0) {
         pthread_cond_wait(&(pContext->cond), &(pContext->mtx));
     }
     pthread_mutex_unlock(&(pContext->mtx));
-    logRecord(pLogCtx, LOG_LEVEL_INFO, "s","ThreadPool Manger Context Exit Successfully!");
+    logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "s","ThreadPool Manger Context Exit Successfully!");
     return 0;
 }
 

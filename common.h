@@ -96,6 +96,7 @@ typedef struct threadContext{
 #define THREADPOOL_MAX_LEN 10
 
 typedef struct threadPoolMangerSt {
+    pthread_t tid;
     size_t threadInitNum; 
     size_t threadMaxNum;
     volatile unsigned int currentNum;
