@@ -1,4 +1,5 @@
 #include "thread.h"
+static bool getTaskFromMaster(ThreadPoolMangerContext *pContext, ThreadContext *pCtx, QueueItem **pTaskNode);
 
 ThreadContext * initThreadContext(char *pthreadName, logContext *pLogCtx) {
     ThreadContext *pCtx = (ThreadContext *)malloc(sizeof(ThreadContext));
@@ -44,6 +45,19 @@ void workerThreadSignalHandle(int signo) {
     }
 }
 
+static bool getTaskFromMaster(ThreadPoolMangerContext *pContext, ThreadContext *pCtx, QueueItem **pTaskNode) {
+    pthread_mutex_lock(&(pContext->mtx));
+    while(gWebServerContext->bExitFlag != true && isQueueEmpty(pContext->queue)) {            
+        pthread_cond_wait(&(pContext->not_empty), &(pContext->mtx));
+    }
+    *pTaskNode = popQueueItem(pContext->queue);
+    pthread_cond_signal(&(pContext->not_full));
+    pthread_mutex_unlock(&(pContext->mtx));
+    return (!(gWebServerContext->bExitFlag)&&(pCtx->bExitFlag != true));
+}
+
+
+
 void *workerThreadRun(void *arg) {
     QueueItem *pTaskNode = NULL;
     struct timeval taskStart = {0, 0};
@@ -52,17 +66,10 @@ void *workerThreadRun(void *arg) {
     signal(SIGINT, workerThreadSignalHandle);
     signal(SIGTERM, workerThreadSignalHandle);
     prctl(PR_SET_NAME, (unsigned long)(pCtx->pThreadName));
-    webServerContext *pWebContext = (webServerContext *)(pCtx->pCtx);
-    ThreadPoolMangerContext *pContext =  pWebContext->pThreadPoolContext[pCtx->id];
+    ThreadPoolMangerContext *pContext = gWebServerContext->pThreadPoolContext[pCtx->id];
     /*@TODO:sigmask some signal such as SIGINT, SIGTERMINL*/
-    while(!(pWebContext->bExitFlag)&&(pCtx->bExitFlag != true)) {
-        pthread_mutex_lock(&(pContext->mtx));
-        while(gWebServerContext->bExitFlag != true && isQueueEmpty(pContext->queue)) {            
-            pthread_cond_wait(&(pContext->not_empty), &(pContext->mtx));
-        }
-        pTaskNode = popQueueItem(pContext->queue);
-        pthread_cond_signal(&(pContext->not_full));
-        pthread_mutex_unlock(&(pContext->mtx));
+    while(getTaskFromMaster(pContext, pCtx, &pTaskNode)){
+        /*@TODO:*/
         if (pTaskNode){
             pCtx->busy = 1;
             gettimeofday(&taskStart, NULL);
@@ -75,7 +82,6 @@ void *workerThreadRun(void *arg) {
             deinitQueueItem(pTaskNode);
         }
     }
-    pthread_cond_signal(&(pContext->not_full));
     /*@TODO:*/
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "sdsU", "Worker Thread:",(int)syscall(SYS_gettid)," Exit....... handle TaskCount:", pCtx->lTaskHandleCount);
     printf("worker Thread Exit........handle TaskNum:%lld\n", pCtx->lTaskHandleCount);

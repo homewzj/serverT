@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
     pConfig.pLogPath = strdup(".");
     pConfig.logLevel = LOG_LEVEL_DEBUG;
     pConfig.logOutBufSize = 1024;
-    pConfig.workerThreadNum = 4;
+    pConfig.workerThreadNum = 20;
     pConfig.scanTimeOut = 1000;
     pConfig.socketNum = 2;
     gWebServerContext = initWebServerContext(&pConfig);
