@@ -18,7 +18,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/syscall.h>
-
+#include <sys/types.h>
+#include <sys/socket.h>
 
 enum RETURN_STATUS{
     RET_ERROR = -1,
@@ -96,7 +97,7 @@ typedef struct threadContext{
 #define THREADPOOL_MAX_LEN 10
 
 typedef struct threadPoolMangerSt {
-    pthread_t tid;
+    int  pipefd;
     size_t threadInitNum; 
     size_t threadMaxNum;
     volatile unsigned int currentNum;
@@ -109,6 +110,7 @@ typedef struct threadPoolMangerSt {
     Queue *queue;
     time_t lastScan; 
     time_t scanTimeOut;
+    size_t index; /*@TODO:*/
 }ThreadPoolMangerContext;
 
 
@@ -116,7 +118,8 @@ typedef struct webServerContext_st {
     logContext  *pLogCtx;
     ThreadPoolMangerContext *pThreadPoolContext[10];
     configContext  *pConfig;
-    volatile bool bExitFlag;
+    int  pipefd[10];
+    bool bExitFlag;
 }webServerContext;
 
 extern webServerContext  *gWebServerContext;

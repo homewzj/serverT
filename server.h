@@ -11,7 +11,7 @@ webServerContext * initWebServerContext(configContext *pConfig);
 
 void deinitWebServerContext(webServerContext *pWebContext);
 
-
+int processServerContext(webServerContext *pContext, configContext *pConfig);
 
 
 #endif

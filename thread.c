@@ -66,7 +66,10 @@ void *workerThreadRun(void *arg) {
     signal(SIGINT, workerThreadSignalHandle);
     signal(SIGTERM, workerThreadSignalHandle);
     prctl(PR_SET_NAME, (unsigned long)(pCtx->pThreadName));
-    ThreadPoolMangerContext *pContext = gWebServerContext->pThreadPoolContext[pCtx->id];
+
+    webServerContext *pWebContext = (webServerContext *)(pCtx->pCtx);
+
+    ThreadPoolMangerContext *pContext = pWebContext->pThreadPoolContext[pCtx->id];
     /*@TODO:sigmask some signal such as SIGINT, SIGTERMINL*/
     while(getTaskFromMaster(pContext, pCtx, &pTaskNode)){
         /*@TODO:*/

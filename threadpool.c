@@ -1,6 +1,5 @@
 #include "threadpool.h"
 
-static volatile unsigned long long taskId = 0;
 static void addWorkerThreadToPool(char *pThreadName, ThreadPoolMangerContext **pContext, logContext *pLogCtx);
 static void deleteWorkerThreadFromPool(ThreadPoolMangerContext **pContext, logContext *pLogCtx);
 static int scanAllWorkerThreadStatus(ThreadPoolMangerContext *pContext, logContext *pLogCtx);
@@ -46,11 +45,11 @@ static int scanAllWorkerThreadStatus(ThreadPoolMangerContext *pContext, logConte
         averageExecuteTaskTime = (double )executeTaskConsume / 5;
         QueueTotalCount = 0, count = 1, executeTaskConsume = 0;
         averageTaskNum = averageTaskNum /(pContext->queue->queueSize);
-        logRecord(pLogCtx, LOG_LEVEL_INFO, "su", "ThreadPool Manger Has reached Max Worker Thread Num:", pContext->currentNum);
+        logRecord(pLogCtx, LOG_LEVEL_INFO, "su", "ThreadPool Manger Has Worker Thread Num:", pContext->currentNum);
         printf("averageTaskNum:%.2f  averageExecuteTaskTime:%ld\n", averageTaskNum, averageExecuteTaskTime);
-        if ( averageTaskNum >= 0.7 && averageExecuteTaskTime > 150) {
+        if ( averageTaskNum >= 0.5 && averageExecuteTaskTime > 150) {
             return RESULT_CREATE_THREAD;
-        }else if ( averageTaskNum <= 0.5 || averageExecuteTaskTime < 100) {
+        }else if ( averageTaskNum < 0.5 || averageExecuteTaskTime < 100) {
             return RESULT_DELETE_THREAD;
         }
         return RESULT_SAVE_CURRENT;
@@ -58,10 +57,9 @@ static int scanAllWorkerThreadStatus(ThreadPoolMangerContext *pContext, logConte
     return RESULT_SAVE_CURRENT;
 }
 
-ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, size_t id) {
+ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, size_t id, int pipefd) {
     assert(pWebContext!=NULL);
     size_t index = 0;
-    int iRet = -1;
     ThreadPoolMangerContext *pContext = (ThreadPoolMangerContext *)malloc(sizeof(ThreadPoolMangerContext));
     if (!pContext) {
         logRecord(pWebContext->pLogCtx, LOG_LEVEL_ERROR, "s", "ThreadPoolManger Context alloc memory failure!\n");
@@ -74,6 +72,7 @@ ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, si
     pContext->threadInitNum = ( pConfig->workerThreadNum > 0 ) ? pConfig->workerThreadNum : THREADPOOL_DEFAULT_LEN;
     pContext->threadMaxNum = THREADPOOL_MAX_LEN;
     pContext->currentNum = pContext->threadInitNum;
+    pContext->pipefd = pipefd;
     pthread_mutex_init(&(pContext->mtx), NULL);
     pthread_cond_init(&(pContext->not_full), NULL);
     pthread_cond_init(&(pContext->not_empty), NULL);
@@ -83,6 +82,7 @@ ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, si
         logRecord(pLogCtx, LOG_LEVEL_ERROR, "s","ThreadPoolManger Context Init msgQueue failure\n");
         goto failure;
     }
+
     for (; index < pContext->threadInitNum; index++) {
         ThreadContext *pNode = initThreadContext("workerThread", pLogCtx);
         if (!pContext->threadPoolHead ) {
@@ -93,12 +93,7 @@ ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, si
             pContext->threadPoolTail = pNode;
         }
         pNode->pCtx = (void *)pWebContext;
-        pNode->id = id;
-        iRet = pthread_create(&(pNode->tid), NULL, pNode->callback, (void *)pNode);
-        if (iRet < 0) {
-            logRecord(pLogCtx, LOG_LEVEL_ERROR, "s", "ThreadPoolManger Context Create WorkerThread Failure!\n");
-            goto failure;
-        }
+        pContext->index = pNode->id = id;
     }
     return pContext;
 failure:
@@ -124,7 +119,6 @@ void deinitThreadPoolContext(ThreadPoolMangerContext * pContext, logContext *pLo
     pthread_cond_destroy(&(pContext->not_full));
     pthread_cond_destroy(&(pContext->not_empty));
     pthread_cond_destroy(&(pContext->cond));
-    free(pContext);
     return;
 }
 
@@ -140,10 +134,9 @@ void threadPoolSignalHandler(int signo) {
     }
 }
 
-
-void * ThreadPoolMangerRun(void *arg){
+void ThreadPoolMangerRun(ThreadPoolMangerContext *pContext) {
     int resultCode = RESULT_SAVE_CURRENT;
-    ThreadPoolMangerContext *pContext = (ThreadPoolMangerContext *)arg;
+    static unsigned long long taskId = 0;
     assert(pContext != NULL);
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
@@ -166,8 +159,10 @@ void * ThreadPoolMangerRun(void *arg){
         if(pTaskNode) pushQueueItem(pContext->queue, pTaskNode);
         pthread_cond_signal(&(pContext->not_empty));
         pthread_mutex_unlock(&(pContext->mtx));
+        usleep(500);
         taskId++;
     }
+
     pthread_cond_broadcast(&(pContext->not_empty));
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);
     printf("Thread Pool Manger Exit!....worker Thread Num:%u  create taskNum:%llu\n", pContext->currentNum, taskId);
@@ -177,7 +172,7 @@ void * ThreadPoolMangerRun(void *arg){
     }
     pthread_mutex_unlock(&(pContext->mtx));
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "s","ThreadPool Manger Context Exit Successfully!");
-    return 0;
+    return;
 }
 
 static void addWorkerThreadToPool(char *pThreadName, ThreadPoolMangerContext **pContext, logContext *pLogCtx) {
@@ -187,21 +182,22 @@ static void addWorkerThreadToPool(char *pThreadName, ThreadPoolMangerContext **p
     assert(pCtx != NULL && pThreadName != NULL && pLogCtx != NULL);
     if ( pCtx->currentNum < pCtx->threadMaxNum) {
         pNode = initThreadContext(pThreadName, pLogCtx);
-        pNode->pCtx = (void *)pCtx;
+        pNode->id = pCtx->index;
+        pCtx->threadPoolTail->next = pNode;
+        pNode->prev = pCtx->threadPoolTail;
+        pCtx->threadPoolTail = pNode;
+        pCtx->currentNum++;
+        pNode->pCtx = (void *)gWebServerContext;
         iRet = pthread_create(&(pNode->tid), NULL, pNode->callback, (void *)pNode);
         if ( iRet < 0 ) {
             logRecord(pLogCtx, LOG_LEVEL_ERROR, "s","ThreadPool Manger create New Worker Thread Failure!\n");
             goto failure;
         }
-
-        pCtx->threadPoolTail->next = pNode;
-        pNode->prev = pCtx->threadPoolTail;
-        pCtx->threadPoolTail = pNode;
-        pCtx->currentNum++;
     }else{
         logRecord(pLogCtx, LOG_LEVEL_WARN, "su", "ThreadPool Manger Has reached Max Worker Thread Num:",pCtx->currentNum);
         printf("current ThreadPool has reach max thread Num:%u\n", pCtx->currentNum);
     }
+
     *pContext = pCtx;
     return;
 failure:
@@ -237,4 +233,21 @@ static void deleteWorkerThreadFromPool(ThreadPoolMangerContext **pContext, logCo
     return;
 }
 
+
+int childProcessCreateThread(ThreadPoolMangerContext *pThreadContext, logContext *pLogCtx) {
+    int iRet = RET_ERROR;
+    ThreadContext *pNode = pThreadContext->threadPoolHead;
+    while(pNode != NULL ) {
+        iRet = pthread_create(&(pNode->tid), NULL, pNode->callback, (void *)pNode);
+        if (iRet < 0) {
+            logRecord(pLogCtx, LOG_LEVEL_ERROR, "s", "ThreadPoolManger Context Create WorkerThread Failure!\n");
+            goto failure;
+        }
+        pNode = pNode->next;
+    }
+    return RET_OK;
+failure:
+    deinitThreadPoolContext(pThreadContext, pLogCtx);
+    return RET_ERROR;
+}
 

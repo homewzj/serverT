@@ -51,18 +51,21 @@ bool isQueueFull(Queue *pQueue) {
 }
 
 QueueItem *popQueueItem(Queue *pQueue) {
-    assert(pQueue != NULL && pQueue->queue != NULL);
-    QueueItem *pItem = pQueue->queue[pQueue->tail];
-    pQueue->queue[pQueue->tail] = NULL;
-    pQueue->tail++;
-    if ( pQueue->tail >= pQueue->queueSize ) {
-        pQueue->tail = 0;
+    if(pQueue != NULL && pQueue->queue) {
+        QueueItem *pItem = pQueue->queue[pQueue->tail];
+        pQueue->queue[pQueue->tail] = NULL;
+        pQueue->tail++;
+        if ( pQueue->tail >= pQueue->queueSize ) {
+            pQueue->tail = 0;
+        }
+        return pItem;
     }
-    return pItem;
+    return NULL;
 }
 
 void taskPrintf(unsigned long long taskId) {
     printf("taskid:%llu\n", taskId);
+    sleep(3);
     return;
 }
 
