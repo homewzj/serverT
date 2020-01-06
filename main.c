@@ -4,21 +4,27 @@ webServerContext *gWebServerContext = NULL;
 
 int main(int argc, char *argv[]) {
     int iRet = RET_ERROR;
-    size_t index = 0;
     configContext pConfig;
     pConfig.pLogPath = strdup(".");
     pConfig.logLevel = LOG_LEVEL_DEBUG;
     pConfig.logOutBufSize = 1024;
-    pConfig.workerThreadNum = 20;
-    pConfig.scanTimeOut = 1000;
+    pConfig.workerThreadNum = 2;
+    pConfig.scanTimeOut = 5;
     pConfig.socketNum = 2;
     gWebServerContext = initWebServerContext(&pConfig);
-    for( ; index < pConfig.socketNum; index++ ) {
-        iRet = pthread_create(&(gWebServerContext->pThreadPoolContext[index]->tid), NULL, ThreadPoolMangerRun, (void *)(gWebServerContext->pThreadPoolContext[index]));
-        if (iRet < 0) {
-            break;
-        }
+    iRet = createWorkerThread(gWebServerContext->pThreadPoolContext);
+    if ( iRet != RET_OK ) {
+        logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_ERROR, "s", "create Worker Thread occur error:", strerror(errno));
+        goto failure;
+    }
+    iRet = ThreadPoolMangerRun(gWebServerContext->pThreadPoolContext);
+    if ( iRet != RET_OK ) {
+        logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_ERROR, "s", "Thread Pool Manger Exit occur error:", strerror(errno));
+        goto failure;
     }
     deinitWebServerContext(gWebServerContext);
     return RET_OK;
+failure:
+    deinitWebServerContext(gWebServerContext);
+    return RET_ERROR;
 }

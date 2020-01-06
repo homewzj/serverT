@@ -48,7 +48,7 @@ static int scanAllWorkerThreadStatus(ThreadPoolMangerContext *pContext, logConte
         averageTaskNum = averageTaskNum /(pContext->queue->queueSize);
         logRecord(pLogCtx, LOG_LEVEL_INFO, "su", "ThreadPool Manger Has reached Max Worker Thread Num:", pContext->currentNum);
         printf("averageTaskNum:%.2f  averageExecuteTaskTime:%ld\n", averageTaskNum, averageExecuteTaskTime);
-        if ( averageTaskNum >= 0.7 && averageExecuteTaskTime > 150) {
+        if ( averageTaskNum >= 0.6 && averageExecuteTaskTime > 150) {
             return RESULT_CREATE_THREAD;
         }else if ( averageTaskNum <= 0.5 || averageExecuteTaskTime < 100) {
             return RESULT_DELETE_THREAD;
@@ -58,10 +58,9 @@ static int scanAllWorkerThreadStatus(ThreadPoolMangerContext *pContext, logConte
     return RESULT_SAVE_CURRENT;
 }
 
-ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, size_t id) {
+ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext) {
     assert(pWebContext!=NULL);
     size_t index = 0;
-    int iRet = -1;
     ThreadPoolMangerContext *pContext = (ThreadPoolMangerContext *)malloc(sizeof(ThreadPoolMangerContext));
     if (!pContext) {
         logRecord(pWebContext->pLogCtx, LOG_LEVEL_ERROR, "s", "ThreadPoolManger Context alloc memory failure!\n");
@@ -91,13 +90,6 @@ ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, si
             pContext->threadPoolTail->next = pNode;
             pNode->prev = pContext->threadPoolTail;
             pContext->threadPoolTail = pNode;
-        }
-        pNode->pCtx = (void *)pWebContext;
-        pNode->id = id;
-        iRet = pthread_create(&(pNode->tid), NULL, pNode->callback, (void *)pNode);
-        if (iRet < 0) {
-            logRecord(pLogCtx, LOG_LEVEL_ERROR, "s", "ThreadPoolManger Context Create WorkerThread Failure!\n");
-            goto failure;
         }
     }
     return pContext;
@@ -141,9 +133,8 @@ void threadPoolSignalHandler(int signo) {
 }
 
 
-void * ThreadPoolMangerRun(void *arg){
+int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext){
     int resultCode = RESULT_SAVE_CURRENT;
-    ThreadPoolMangerContext *pContext = (ThreadPoolMangerContext *)arg;
     assert(pContext != NULL);
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
@@ -167,6 +158,7 @@ void * ThreadPoolMangerRun(void *arg){
         pthread_cond_signal(&(pContext->not_empty));
         pthread_mutex_unlock(&(pContext->mtx));
         taskId++;
+        usleep(500);
     }
     pthread_cond_broadcast(&(pContext->not_empty));
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);
@@ -238,3 +230,18 @@ static void deleteWorkerThreadFromPool(ThreadPoolMangerContext **pContext, logCo
 }
 
 
+int createWorkerThread(ThreadPoolMangerContext *pContext) {
+    int iRet = RET_ERROR;
+    assert(pContext != NULL);
+    ThreadContext *pHead = pContext->threadPoolHead;
+    while(pHead != NULL) {
+        pHead->pCtx = (void *)pContext;
+        iRet = pthread_create(&(pHead->tid), NULL, pHead->callback, (void *)pHead);
+        if ( iRet == RET_ERROR ) {
+            logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_ERROR,"ss","call pthread_create occur error:",strerror(errno));
+            return iRet;
+        }
+        pHead = pHead->next;
+    }
+    return RET_OK;
+}

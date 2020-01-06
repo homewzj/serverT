@@ -96,7 +96,6 @@ typedef struct threadContext{
 #define THREADPOOL_MAX_LEN 10
 
 typedef struct threadPoolMangerSt {
-    pthread_t tid;
     size_t threadInitNum; 
     size_t threadMaxNum;
     volatile unsigned int currentNum;
@@ -114,7 +113,7 @@ typedef struct threadPoolMangerSt {
 
 typedef struct webServerContext_st {
     logContext  *pLogCtx;
-    ThreadPoolMangerContext *pThreadPoolContext[10];
+    ThreadPoolMangerContext *pThreadPoolContext;
     configContext  *pConfig;
     volatile bool bExitFlag;
 }webServerContext;

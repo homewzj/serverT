@@ -10,26 +10,17 @@ webServerContext * initWebServerContext(configContext *pConfig) {
         /*@TODO:call logWriteFunc*/
         return NULL;
     }
-    size_t index = 0;
     logContext oldLogCtx;
     pWebCtx->bExitFlag = false;
     pWebCtx->pConfig = pConfig;
     pWebCtx->pLogCtx = logContextInit(pWebCtx, &oldLogCtx);
-    for(; index < pConfig->socketNum; index++) {
-        pWebCtx->pThreadPoolContext[index] = initThreadPoolContext(pWebCtx, index);
-    }
+    pWebCtx->pThreadPoolContext = initThreadPoolContext(pWebCtx);
     return pWebCtx;
 }
 
 void deinitWebServerContext(webServerContext *pContext) {
     assert(pContext != NULL);
-    size_t index = 0;
-    for (; index < pContext->pConfig->socketNum; index++) {
-        if (pContext->pThreadPoolContext[index]->tid > 0) {
-            pthread_join(pContext->pThreadPoolContext[index]->tid, NULL);
-            deinitThreadPoolContext(pContext->pThreadPoolContext[index], pContext->pLogCtx);
-        }
-    }
+    deinitThreadPoolContext(pContext->pThreadPoolContext, pContext->pLogCtx);
 /*    if (pContext->pConfig) {
         deinitConfigContext(pContext->pConfig, pContext->pLogCtx);
     }*/

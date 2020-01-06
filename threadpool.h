@@ -11,10 +11,12 @@ enum SCAN_RESULT_STATUS{
 };
 
 
-ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext, size_t index);
+ThreadPoolMangerContext *initThreadPoolContext(webServerContext *pWebContext);
 
 void deinitThreadPoolContext(ThreadPoolMangerContext *pContext, logContext *pLogCtx);
 
-void * ThreadPoolMangerRun(void *arg);
+int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext);
+
+int createWorkerThread(ThreadPoolMangerContext *pContext);
 
 #endif

@@ -63,6 +63,7 @@ QueueItem *popQueueItem(Queue *pQueue) {
 
 void taskPrintf(unsigned long long taskId) {
     printf("taskid:%llu\n", taskId);
+    sleep(3);
     return;
 }
 
