@@ -3,7 +3,9 @@
 
 #include "config.h"
 #include "log.h"
+#include "network.h"
 #include "threadpool.h"
+
 
 int parseCmdOption(int argc, char *argv[]);
 

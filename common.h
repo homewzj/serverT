@@ -18,7 +18,9 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/syscall.h>
-
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 enum RETURN_STATUS{
     RET_ERROR = -1,
@@ -33,12 +35,17 @@ enum LOG_LEVEL{
 };
 
 
-
-
 #define  MSGQUEUE_DEFAULT_LEN  20
 #define  DEFAULT_BUF_LEN  128
 
 void taskPrintf(unsigned long long taskId);
+
+typedef struct listenSocketSt{
+    int  listenfd;
+    struct sockaddr_in sockaddr;
+    struct listenSocketSt * next;
+    char ipAddr[DEFAULT_BUF_LEN];
+}listenSocketContext;
 
 typedef struct logContext_st{
     int   logfd;
@@ -51,6 +58,7 @@ typedef struct logContext_st{
 }logContext;
 
 typedef struct configContext_st{
+    char   *pIpAddr;
     size_t workerThreadNum; 
     time_t scanTimeOut;
     char   *pLogPath;
@@ -96,6 +104,7 @@ typedef struct threadContext{
 #define THREADPOOL_MAX_LEN 10
 
 typedef struct threadPoolMangerSt {
+    pid_t  pid; 
     size_t threadInitNum; 
     size_t threadMaxNum;
     volatile unsigned int currentNum;
@@ -110,11 +119,17 @@ typedef struct threadPoolMangerSt {
     time_t scanTimeOut;
 }ThreadPoolMangerContext;
 
+typedef struct networkContextSt{
+    listenSocketContext *head;
+    listenSocketContext *tail;
+    size_t socketNum;
+}networkContext;
 
 typedef struct webServerContext_st {
     logContext  *pLogCtx;
     ThreadPoolMangerContext *pThreadPoolContext;
     configContext  *pConfig;
+    networkContext netWorkConext;
     volatile bool bExitFlag;
 }webServerContext;
 

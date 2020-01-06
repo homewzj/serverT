@@ -10,10 +10,13 @@ webServerContext * initWebServerContext(configContext *pConfig) {
         /*@TODO:call logWriteFunc*/
         return NULL;
     }
+    size_t count = 0;
     logContext oldLogCtx;
     pWebCtx->bExitFlag = false;
     pWebCtx->pConfig = pConfig;
     pWebCtx->pLogCtx = logContextInit(pWebCtx, &oldLogCtx);
+    pWebCtx->netWorkConext.head = createListenSocket(pConfig, &count, pWebCtx->pLogCtx);
+    pWebCtx->netWorkConext.socketNum = count;
     pWebCtx->pThreadPoolContext = initThreadPoolContext(pWebCtx);
     return pWebCtx;
 }

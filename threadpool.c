@@ -133,32 +133,47 @@ void threadPoolSignalHandler(int signo) {
 }
 
 
-int ThreadPoolMangerRun(ThreadPoolMangerContext *pContext){
+static bool produceTaskFromClient(webServerContext *pWebContext) {
+    ThreadPoolMangerContext *pContext = pWebContext->pThreadPoolContext;
+    assert(pWebContext != NULL && pContext != NULL);
+    pthread_mutex_lock(&(pContext->mtx));
+    while( pWebContext->bExitFlag != true && isQueueFull(pContext->queue)){
+        pthread_cond_wait(&(pContext->not_full), &(pContext->mtx));
+    }
+    /*@TODO:accept client connection */
+    QueueItem *pTaskNode = createQueueItem((void *)&taskId);
+    if(pTaskNode) pushQueueItem(pContext->queue, pTaskNode);
+    pthread_cond_signal(&(pContext->not_empty));
+    pthread_mutex_unlock(&(pContext->mtx));
+    taskId++;
+    usleep(500);
+    return !(pWebContext->bExitFlag);
+}
+
+
+
+int ThreadPoolMangerRun(webServerContext *pWebContext){
     int resultCode = RESULT_SAVE_CURRENT;
-    assert(pContext != NULL);
+    assert(pWebContext != NULL);
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, SIG_IGN);
     signal(SIGINT, threadPoolSignalHandler);
     signal(SIGTERM, threadPoolSignalHandler);
+    ThreadPoolMangerContext *pContext = pWebContext->pThreadPoolContext;
+    assert(pContext != NULL);
+
+    int clientFd = RET_ERROR;
+    
     /*@TODO:register signal handle to SIGINT, SIGTERMINAL*/
-    while(!(gWebServerContext->bExitFlag)) {
+    while(produceTaskFromClient(pWebContext)) {
         /*@step1:*/        
         if (time(NULL) - pContext->lastScan >= pContext->scanTimeOut) {
             resultCode = scanAllWorkerThreadStatus(pContext, gWebServerContext->pLogCtx);
             handleWorkerThreadScanResult(resultCode, &pContext, gWebServerContext->pLogCtx);
             pContext->lastScan = time(NULL);
         }
-        /*@step2:*/
-        pthread_mutex_lock(&(pContext->mtx));
-        while( gWebServerContext->bExitFlag != true && isQueueFull(pContext->queue)){
-            pthread_cond_wait(&(pContext->not_full), &(pContext->mtx));
-        }
-        QueueItem *pTaskNode = createQueueItem((void *)&taskId);
-        if(pTaskNode) pushQueueItem(pContext->queue, pTaskNode);
-        pthread_cond_signal(&(pContext->not_empty));
-        pthread_mutex_unlock(&(pContext->mtx));
-        taskId++;
-        usleep(500);
+
+        /*@TODO:ack check */
     }
     pthread_cond_broadcast(&(pContext->not_empty));
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);

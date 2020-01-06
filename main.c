@@ -11,13 +11,14 @@ int main(int argc, char *argv[]) {
     pConfig.workerThreadNum = 2;
     pConfig.scanTimeOut = 5;
     pConfig.socketNum = 2;
+    pConfig.pIpAddr =strdup("127.0.0.1:8080;127.0.0.1:8090");
     gWebServerContext = initWebServerContext(&pConfig);
     iRet = createWorkerThread(gWebServerContext->pThreadPoolContext);
     if ( iRet != RET_OK ) {
         logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_ERROR, "s", "create Worker Thread occur error:", strerror(errno));
         goto failure;
     }
-    iRet = ThreadPoolMangerRun(gWebServerContext->pThreadPoolContext);
+    iRet = ThreadPoolMangerRun(gWebServerContext);
     if ( iRet != RET_OK ) {
         logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_ERROR, "s", "Thread Pool Manger Exit occur error:", strerror(errno));
         goto failure;

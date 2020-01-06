@@ -11,7 +11,8 @@ LD := -lpthread
 BIN := server  
 SERVER := server.o 
 CONFIG := config.o
-OBJ += $(MSGQUEUE) $(THREAD) $(THREADPOOL) $(MAIN) $(SERVER) $(LOG) $(CONFIG)
+NETWORK := network.o
+OBJ += $(MSGQUEUE) $(THREAD) $(THREADPOOL) $(MAIN) $(SERVER) $(LOG) $(CONFIG) $(NETWORK)
 debug: $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LD)
 
