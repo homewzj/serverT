@@ -21,6 +21,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <ctype.h>
+#include <stdbool.h>
+
 
 enum RETURN_STATUS{
     RET_ERROR = -1,
@@ -39,6 +42,24 @@ enum LOG_LEVEL{
 #define  DEFAULT_BUF_LEN  128
 
 void taskPrintf(unsigned long long taskId);
+
+struct access_control_elem_s {
+    int type;
+    long netaddr;
+    long netmask;
+    int  netmasklen;
+    unsigned char *ipv6;
+    unsigned char *ipv6start;
+    unsigned char *ipv6end;
+    struct access_control_elem_s *left;
+    struct access_control_elem_s *right;
+};
+
+struct access_control_list_s {
+    bool aclEnable;
+    struct access_control_elem_s *ipv4;
+    struct access_control_elem_s *ipv6;
+};
 
 typedef struct listenSocketSt{
     int  listenfd;
@@ -59,6 +80,7 @@ typedef struct logContext_st{
 
 typedef struct configContext_st{
     char   *pIpAddr;
+    char   *pAclList;
     size_t workerThreadNum; 
     time_t scanTimeOut;
     char   *pLogPath;
@@ -130,6 +152,7 @@ typedef struct webServerContext_st {
     ThreadPoolMangerContext *pThreadPoolContext;
     configContext  *pConfig;
     networkContext netWorkConext;
+    struct access_control_list_s *pAclCtx;
     volatile bool bExitFlag;
 }webServerContext;
 

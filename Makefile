@@ -7,12 +7,13 @@ MAIN := main.o
 THREAD := thread.o
 THREADPOOL := threadpool.o
 LOG := log.o 
+ACL := acl.o
 LD := -lpthread
 BIN := server  
 SERVER := server.o 
 CONFIG := config.o
 NETWORK := network.o
-OBJ += $(MSGQUEUE) $(THREAD) $(THREADPOOL) $(MAIN) $(SERVER) $(LOG) $(CONFIG) $(NETWORK)
+OBJ += $(MSGQUEUE) $(THREAD) $(THREADPOOL) $(MAIN) $(SERVER) $(LOG) $(CONFIG) $(NETWORK) $(ACL)
 debug: $(OBJ)
 	$(CC) -o $(BIN) $(OBJ) $(LD)
 

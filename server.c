@@ -17,6 +17,8 @@ webServerContext * initWebServerContext(configContext *pConfig) {
     pWebCtx->pLogCtx = logContextInit(pWebCtx, &oldLogCtx);
     pWebCtx->netWorkConext.head = createListenSocket(pConfig, &count, pWebCtx->pLogCtx);
     pWebCtx->netWorkConext.socketNum = count;
+    pWebCtx->pAclCtx = aclctxInit(pWebCtx->pLogCtx);
+    pWebCtx->pAclCtx = parseWhiteListAclRule(pWebCtx);
     pWebCtx->pThreadPoolContext = initThreadPoolContext(pWebCtx);
     return pWebCtx;
 }

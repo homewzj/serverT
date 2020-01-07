@@ -12,6 +12,7 @@ int main(int argc, char *argv[]) {
     pConfig.scanTimeOut = 5;
     pConfig.socketNum = 2;
     pConfig.pIpAddr =strdup("127.0.0.1:8080;127.0.0.1:8090");
+    pConfig.pAclList = strdup("192.168.1.100/8,10.10.12.22/16, 192.168.100.100");
     gWebServerContext = initWebServerContext(&pConfig);
     iRet = createWorkerThread(gWebServerContext->pThreadPoolContext);
     if ( iRet != RET_OK ) {

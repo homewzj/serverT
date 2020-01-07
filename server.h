@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "log.h"
+#include "acl.h"
 #include "network.h"
 #include "threadpool.h"
 

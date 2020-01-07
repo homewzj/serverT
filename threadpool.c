@@ -136,11 +136,23 @@ void threadPoolSignalHandler(int signo) {
 static bool produceTaskFromClient(webServerContext *pWebContext) {
     ThreadPoolMangerContext *pContext = pWebContext->pThreadPoolContext;
     assert(pWebContext != NULL && pContext != NULL);
+    int iRet = RET_ERROR;
+    char pClientAddr[DEFAULT_BUF_LEN];
+    pClientAddr[0] = '\0';
     pthread_mutex_lock(&(pContext->mtx));
     while( pWebContext->bExitFlag != true && isQueueFull(pContext->queue)){
         pthread_cond_wait(&(pContext->not_full), &(pContext->mtx));
     }
     /*@TODO:accept client connection */
+    
+    /*@TODO:acl check */
+    if ( pWebContext->pAclCtx->aclEnable ) {
+        iRet = checkClientIpIsNotAlloc(pWebContext->pAclCtx, pClientAddr, pWebContext->pLogCtx);
+        if (iRet == RET_ERROR) {
+            /*@TODO:close connectiontion */
+
+        }
+    }
     QueueItem *pTaskNode = createQueueItem((void *)&taskId);
     if(pTaskNode) pushQueueItem(pContext->queue, pTaskNode);
     pthread_cond_signal(&(pContext->not_empty));
@@ -161,9 +173,6 @@ int ThreadPoolMangerRun(webServerContext *pWebContext){
     signal(SIGTERM, threadPoolSignalHandler);
     ThreadPoolMangerContext *pContext = pWebContext->pThreadPoolContext;
     assert(pContext != NULL);
-
-    int clientFd = RET_ERROR;
-    
     /*@TODO:register signal handle to SIGINT, SIGTERMINAL*/
     while(produceTaskFromClient(pWebContext)) {
         /*@step1:*/        
@@ -172,8 +181,6 @@ int ThreadPoolMangerRun(webServerContext *pWebContext){
             handleWorkerThreadScanResult(resultCode, &pContext, gWebServerContext->pLogCtx);
             pContext->lastScan = time(NULL);
         }
-
-        /*@TODO:ack check */
     }
     pthread_cond_broadcast(&(pContext->not_empty));
     logRecord(gWebServerContext->pLogCtx, LOG_LEVEL_INFO, "susU", "ThreadPool Manger Context Exit!... worker Thread Num:", pContext->currentNum, "create taskNum:", taskId);
